@@ -18,5 +18,4 @@ func NewRouter(userHandler *handlers.UserHandler) *mux.Router {
 	// Define your routes here
 	// Example: router.HandleFunc("/api/resource", resourceHandler).Methods("GET", "POST")
 	return router
-
 }
