@@ -34,7 +34,7 @@ func (s *Server) Serv() {
 	} else {
 		fmt.Println("DB connected successfully!")
 	}
-	userHandler := handlers.NewUserHandler(s.db)
+	userHandler := handlers.NewUserHandler(s.db, s.config)
 	router := routers.NewRouter(userHandler)
 	s.srv = &http.Server{
 		Addr:    ":" + s.config.PORT,

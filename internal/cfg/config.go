@@ -6,12 +6,14 @@ import (
 )
 
 type Cfg struct {
-	PORT   string
-	DBNAME string
-	DBUSER string
-	DBPASS string
-	DBHOST string
-	DBPORT string
+	PORT                   string
+	DBNAME                 string
+	DBUSER                 string
+	DBPASS                 string
+	DBHOST                 string
+	DBPORT                 string
+	SECRET                 string
+	REFRESH_TOKEN_LIVE_DAY int64
 }
 
 func LoadConfig() Cfg {
@@ -23,6 +25,8 @@ func LoadConfig() Cfg {
 	v.SetDefault("DBPASS", "")
 	v.SetDefault("DBHOST", "localhost")
 	v.SetDefault("DBPORT", "5432")
+	v.SetDefault("SECRET", "0987654321")
+	v.SetDefault("REFRESH_TOKEN_LIVE_DAY", 7) // days
 	v.AutomaticEnv()
 	//fmt.Println("SERVER_PORT:", os.Getenv("SERVER_PORT"))
 	//fmt.Println("SERVER_DBNAME:", os.Getenv("SERVER_DBNAME"))
