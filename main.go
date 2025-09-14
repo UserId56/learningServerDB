@@ -17,15 +17,22 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	serverInstans := server.NewServer(ctx, &cfg)
-	serverInstans.Serv()
+	go serverInstans.Serv()
 
-	go func() {
-		oscall := <-c
-		fmt.Println("Received signal:", oscall)
-		cancel()
-		serverInstans.Shutdown()
-		fmt.Println("Server shutdown gracefully")
-	}()
+	<-c
+	fmt.Println("Received signal")
+	cancel()
+	serverInstans.Shutdown()
+	fmt.Println("Server shutdown gracefully")
+
+	//go func() {
+	//	oscall := <-c
+	//	fmt.Println("Received signal:", oscall)
+	//	cancel()
+	//	serverInstans.Shutdown()
+	//	fmt.Println("Server shutdown gracefully")
+	//}()
+
 	//fmt.Println("Hello, Leaning Server DB!")
 	//conn, err := pgx.Connect(context.Background(), cfg.GetDBString())
 	//if err != nil {
