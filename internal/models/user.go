@@ -1,14 +1,19 @@
 package models
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+)
 
 type UserRegistrationData struct {
-	Username   string `json:"userName"`
+	Username   string `json:"user_name"`
 	Email      string `json:"email"`
 	Password   string `json:"password"`
-	FirstName  string `json:"firstName"`
-	LastName   string `json:"lastName"`
-	MiddleName string `json:"middleName"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	MiddleName string `json:"middle_name"`
+	BIO        string `json:"BIO"`
+	AvatarURL  string `json:"avatar_url"`
 }
 
 func (u UserRegistrationData) GetHashPassword() (string, error) {
@@ -19,11 +24,25 @@ func (u UserRegistrationData) GetHashPassword() (string, error) {
 	return string(hashedPassword), nil
 }
 
+func (u UserRegistrationData) Validate() error {
+	switch {
+	case u.Username == "":
+		return fmt.Errorf("user_name обязательное поле")
+	case u.Email == "":
+		return fmt.Errorf("email обязательное поле")
+	case u.Password == "":
+		return fmt.Errorf("password обязательное поле")
+	case len(u.Password) < 6:
+		return fmt.Errorf("password должен быть не менее 6 символов")
+	}
+	return nil
+}
+
 type User struct {
 	Id        int64  `json:"id" db:"id"`
-	Username  string `json:"userName" db:"username"`
+	Username  string `json:"user_name" db:"username"`
 	Email     string `json:"email" db:"email"`
 	Password  string `json:"password" db:"passwordhash"`
-	CreatedAt string `json:"createdAt" db:"createdat"`
-	UpdatedAt string `json:"updatedAt" db:"updatedat"`
+	CreatedAt string `json:"created_at" db:"createdat"`
+	UpdatedAt string `json:"updated_at" db:"updatedat"`
 }

@@ -3,12 +3,16 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"learningServerDB/internal/cfg"
+	"learningServerDB/internal/logger"
 	"learningServerDB/internal/models"
+	"learningServerDB/internal/utils"
 	"net/http"
 	"strconv"
 	"time"
@@ -53,19 +57,25 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
-		http.Error(w, "Не валидное тело запроса", http.StatusBadRequest)
+		logger.LogError(err, "Ошибка парса тела запроса:", "Error")
+		utils.RespondWithError(w, http.StatusBadRequest, "Некорректное тело запроса")
+		return
+	}
+	err = userData.Validate()
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Ошибка валидации: %v", err))
 		return
 	}
 	passwordHash, err := userData.GetHashPassword()
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка хеширования пароля: %v", err)
+		logger.LogError(err, "Ошибка хеширования пароля:", "Error")
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
 		return
 	}
 	tx, err := h.dataBasePool.Begin(context.Background())
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка создания транзакции: %v", err)
+		logger.LogError(err, "Ошибка начала транзакции:", "Error")
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
 		return
 	}
 	defer tx.Rollback(context.Background())
@@ -76,9 +86,24 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		userData.Username, userData.Email, passwordHash,
 	).Scan(&userId)
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка при создании пользователя: %v", err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			switch pgErr.ConstraintName {
+			case "users_email_key":
+				utils.RespondWithError(w, http.StatusConflict, fmt.Sprintf("Email %s уже используется", userData.Email))
+				return
+			case "users_username_key":
+				utils.RespondWithError(w, http.StatusConflict, fmt.Sprintf("Username %s уже используется", userData.Username))
+				return
+			default:
+				utils.RespondWithError(w, http.StatusConflict, "Пользователь с такими данными уже существует")
+				return
+			}
+		}
+		logger.LogError(err, "Ошибка при создании пользователя:", "Error")
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
 		return
+
 	}
 	var userProfilesId int64
 	err = tx.QueryRow(context.Background(),
@@ -86,8 +111,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		userId, userData.FirstName, userData.LastName, userData.MiddleName,
 	).Scan(&userProfilesId)
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка при создании профиля пользователя: %v", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
+		logger.LogError(err, "Ошибка при создании профиля пользователя:", "Error")
 		return
 	}
 	var refreshToken string
@@ -95,14 +120,14 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		"INSERT INTO refresh_tokens (userid, createdat, expiresat) VALUES ($1, NOW(), $2) RETURNING token",
 		userId, time.Now().Add(time.Hour*24*time.Duration(h.config.REFRESH_TOKEN_LIVE_DAY))).Scan(&refreshToken)
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка при создании refresh токена: %v", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
+		logger.LogError(err, "Ошибка при создании refresh токена:", "Error")
 		return
 	}
 
 	if err = tx.Commit(context.Background()); err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка при фиксации транзакции: %v", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
+		logger.LogError(err, "Ошибка фиксации транзакции:", "Error")
 		return
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -112,8 +137,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 	tokenString, err := token.SignedString([]byte(h.config.SECRET))
 	if err != nil {
-		http.Error(w, "Ошибка на сервере", http.StatusInternalServerError)
-		fmt.Printf("Ошибка при создании JWT токена: %v", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
+		logger.LogError(err, "Ошибка создания JWT токена:", "Error")
 		return
 	}
 	w.Header().Set("Authorization", "Bearer "+tokenString)
@@ -127,10 +152,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		fmt.Printf("Ошибка парса response или отправки ответа: %v", err)
+		logger.LogError(err, "Ошибка кодирования ответа:", "Error")
+		utils.RespondWithError(w, http.StatusInternalServerError, "Ошибка на сервере")
 		return
 	}
-	fmt.Printf("Result: %+v\n", userId)
-	fmt.Printf("Result: %+v\n", userProfilesId)
-	//fmt.Printf("Received user data: %+v\n", userData)
 }
