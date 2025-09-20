@@ -6,4 +6,5 @@ const (
 	ErrCodeEmailExists       = "EMAIL_ALREADY_EXISTS"
 	ErrCodeUsernameExists    = "USERNAME_ALREADY_EXISTS"
 	ErrCodeServerError       = "SERVER_ERROR"
+	ErrCodeInvalidToken      = "INVALID_TOKEN"
 )

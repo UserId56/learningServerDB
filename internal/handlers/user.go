@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,6 +49,34 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("User ID: " + variable["id"] + ", Username: " + user))
+}
+
+func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Отсутствует токен авторизации")
+		return
+	}
+
+	token, err := utils.SplitBearerToken(authHeader)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный формат токена авторизации Bearer <токен_сессии>")
+		return
+	}
+	if user, ok := utils.JWTConfirm(h.config.SECRET, token); !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный токен авторизации")
+		return
+	} else {
+		_, err := h.dataBasePool.Exec(context.Background(), "DELETE FROM refresh_tokens WHERE userid = $1", user.Id)
+		if err != nil {
+			logger.LogError(err, "Ошибка при удалении refresh токена:", logger.Error)
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrCodeServerError, "Ошибка на сервере")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 }
 
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -130,18 +157,17 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		logger.LogError(err, "Ошибка фиксации транзакции:", logger.Error)
 		return
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId":   userId,
-		"username": userData.Username,
-		"exp":      time.Now().Add(time.Hour * 1).Unix(),
-	})
-	tokenString, err := token.SignedString([]byte(h.config.SECRET))
+	var user = models.User{
+		Id:       userId,
+		Username: userData.Username,
+	}
+	// Создание JWT токена
+	tokenString, err := user.JWTGeneration(h.config.SECRET)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrCodeServerError, "Ошибка на сервере")
 		logger.LogError(err, "Ошибка создания JWT токена:", logger.Error)
 		return
 	}
-	w.Header().Set("Authorization", "Bearer "+tokenString)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	response := models.AuthResponse{

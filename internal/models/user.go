@@ -2,7 +2,9 @@ package models
 
 import (
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 type UserRegistrationData struct {
@@ -16,23 +18,23 @@ type UserRegistrationData struct {
 	AvatarURL  string `json:"avatar_url"`
 }
 
-func (u UserRegistrationData) GetHashPassword() (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+func (urd UserRegistrationData) GetHashPassword() (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(urd.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
 	}
 	return string(hashedPassword), nil
 }
 
-func (u UserRegistrationData) Validate() error {
+func (urd UserRegistrationData) Validate() error {
 	switch {
-	case u.Username == "":
+	case urd.Username == "":
 		return fmt.Errorf("user_name обязательное поле")
-	case u.Email == "":
+	case urd.Email == "":
 		return fmt.Errorf("email обязательное поле")
-	case u.Password == "":
+	case urd.Password == "":
 		return fmt.Errorf("password обязательное поле")
-	case len(u.Password) < 6:
+	case len(urd.Password) < 6:
 		return fmt.Errorf("password должен быть не менее 6 символов")
 	}
 	return nil
@@ -45,4 +47,14 @@ type User struct {
 	Password  string `json:"password" db:"passwordhash"`
 	CreatedAt string `json:"created_at" db:"createdat"`
 	UpdatedAt string `json:"updated_at" db:"updatedat"`
+}
+
+func (u User) JWTGeneration(secret string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userId":   u.Id,
+		"username": u.Username,
+		"exp":      time.Now().Add(time.Hour * 1).Unix(),
+	})
+	tokenString, err := token.SignedString([]byte(secret))
+	return tokenString, err
 }
