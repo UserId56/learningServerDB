@@ -60,7 +60,7 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	token, err := utils.SplitBearerToken(authHeader)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный формат токена авторизации")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный формат токена авторизации Bearer <токен_сессии>")
 		return
 	}
 	if user, ok := utils.JWTConfirm(h.config.SECRET, token); !ok {

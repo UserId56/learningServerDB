@@ -31,7 +31,7 @@ func JWTConfirm(secret string, tokenString string) (*models.User, bool) {
 
 func SplitBearerToken(authHeader string) (string, error) {
 	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "Bearer" {
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return "", fmt.Errorf("неверный формат токена авторизации")
 	}
 	return parts[1], nil
