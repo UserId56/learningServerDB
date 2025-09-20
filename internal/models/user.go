@@ -7,10 +7,23 @@ import (
 	"time"
 )
 
+type UserLoginData struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+func (uld UserLoginData) CompareHashAndPassword(HashPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(HashPassword), []byte(uld.Password))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 type UserRegistrationData struct {
+	UserLoginData
 	Username   string `json:"user_name"`
 	Email      string `json:"email"`
-	Password   string `json:"password"`
 	FirstName  string `json:"first_name"`
 	LastName   string `json:"last_name"`
 	MiddleName string `json:"middle_name"`
