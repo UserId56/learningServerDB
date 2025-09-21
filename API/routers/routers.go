@@ -15,9 +15,10 @@ func NewRouter(userHandler *handlers.UserHandler) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/test", testRespons).Methods("GET")
 	router.HandleFunc("/user/{id}", userHandler.GetUserByID).Methods("GET")
-	router.HandleFunc("/register", userHandler.Register).Methods("POST")
-	router.HandleFunc("/login", userHandler.Login).Methods("POST")
-	router.HandleFunc("/logout", userHandler.Logout).Methods("POST")
+	router.HandleFunc("/user/register", userHandler.Register).Methods("POST")
+	router.HandleFunc("/user/login", userHandler.Login).Methods("POST")
+	router.HandleFunc("/user/logout", userHandler.Logout).Methods("POST")
+	router.HandleFunc("/user/refresh", userHandler.Refresh).Methods("POST")
 	// Define your routes here
 	// Example: router.HandleFunc("/api/resource", resourceHandler).Methods("GET", "POST")
 	return router
