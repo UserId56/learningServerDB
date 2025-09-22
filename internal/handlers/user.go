@@ -349,3 +349,30 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Отсутствует токен авторизации")
+		return
+	}
+
+	token, err := utils.SplitBearerToken(authHeader)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный формат токена авторизации Bearer <токен_сессии>")
+		return
+	}
+	if user, ok := utils.JWTConfirm(h.config.SECRET, token); !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный токен авторизации")
+		return
+	} else {
+		_, err = h.dataBasePool.Exec(context.Background(), "DELETE FROM users WHERE id = $1", user.Id)
+		if err != nil {
+			logger.LogError(err, "Ошибка при удалении пользователя:", logger.Error)
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrCodeServerError, "Ошибка на сервере")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+}
