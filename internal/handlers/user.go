@@ -366,10 +366,14 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusUnauthorized, utils.ErrCodeInvalidToken, "Некорректный токен авторизации")
 		return
 	} else {
-		_, err = h.dataBasePool.Exec(context.Background(), "DELETE FROM users WHERE id = $1", user.Id)
+		res, err := h.dataBasePool.Exec(context.Background(), "DELETE FROM users WHERE id = $1", user.Id)
 		if err != nil {
 			logger.LogError(err, "Ошибка при удалении пользователя:", logger.Error)
 			utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrCodeServerError, "Ошибка на сервере")
+			return
+		}
+		if res.RowsAffected() == 0 {
+			utils.RespondWithError(w, http.StatusNotFound, utils.ErrCodeUserNotFound, "Пользователь не найден")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

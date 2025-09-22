@@ -9,4 +9,5 @@ const (
 	ErrCodeInvalidToken         = "INVALID_TOKEN"
 	ErrCodeUnauthorized         = "UNAUTHORIZED"
 	ErrCodeUnauthorizedNotValid = "UNAUTHORIZED_NOT_VALID"
+	ErrCodeUserNotFound         = "USER_NOT_FOUND"
 )
